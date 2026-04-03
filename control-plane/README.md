@@ -147,6 +147,7 @@ The control plane uses an offline-safe system font stack, so production builds d
 - Non-production environments should set `NEXT_PUBLIC_APP_ENV` so the app shell shows a visible environment badge.
 - The production container uses a standalone Next.js build and exposes `/api/health` for readiness and liveness probes.
 - The app uses only offline-safe system fonts, so container builds do not require Google Fonts access.
+- For Railway, set `BACKEND_BASE_URL` to the API service private domain and `NEXT_PUBLIC_BACKEND_SWAGGER_URL` to the API public domain. The copy-paste template lives at [RAILWAY_VARIABLES_FRONTEND.env](/C:/Users/Kidus/Documents/sms-platform-backend/RAILWAY_VARIABLES_FRONTEND.env).
 
 ## Known Limitations and Assumptions
 

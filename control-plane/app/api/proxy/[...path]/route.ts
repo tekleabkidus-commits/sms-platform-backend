@@ -1,6 +1,7 @@
 import { cookies } from 'next/headers';
 import { NextRequest, NextResponse } from 'next/server';
-import { getBackendBaseUrl, SESSION_COOKIE_NAME } from '@/lib/backend';
+import { SESSION_COOKIE_NAME } from '@/lib/backend';
+import { getBackendBaseUrl } from '@/lib/runtime-env';
 
 async function proxy(request: NextRequest, context: { params: Promise<{ path: string[] }> }): Promise<NextResponse> {
   const cookieStore = await cookies();

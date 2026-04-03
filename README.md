@@ -74,6 +74,39 @@ Beginner-friendly deployment instructions live in:
 - [digitalocean-app-platform.md](/C:/Users/Kidus/Documents/sms-platform-backend/docs/deployment/digitalocean-app-platform.md)
 - [staging-test-accounts.md](/C:/Users/Kidus/Documents/sms-platform-backend/docs/deployment/staging-test-accounts.md)
 
+## Railway
+
+The repository is also prepared for Railway from GitHub with separate services for the API, control-plane, and workers.
+
+Railway deployment guide:
+
+- [railway.md](/C:/Users/Kidus/Documents/sms-platform-backend/docs/deployment/railway.md)
+
+Copy-paste Railway variable files:
+
+- [RAILWAY_VARIABLES_BACKEND.env](/C:/Users/Kidus/Documents/sms-platform-backend/RAILWAY_VARIABLES_BACKEND.env)
+- [RAILWAY_VARIABLES_FRONTEND.env](/C:/Users/Kidus/Documents/sms-platform-backend/RAILWAY_VARIABLES_FRONTEND.env)
+- [RAILWAY_VARIABLES_WORKERS.env](/C:/Users/Kidus/Documents/sms-platform-backend/RAILWAY_VARIABLES_WORKERS.env)
+- [RAILWAY_VARIABLES_CHECKLIST.md](/C:/Users/Kidus/Documents/sms-platform-backend/RAILWAY_VARIABLES_CHECKLIST.md)
+
+Recommended Railway service names so the variable references work without edits:
+
+- `postgres`
+- `redis`
+- `api`
+- `control-plane`
+- `worker-dispatch`
+- `worker-dlr`
+- `worker-outbox`
+- `worker-campaign`
+- `worker-fraud`
+- `worker-reconciliation`
+
+Recommended Railway root directories:
+
+- backend and workers: `/`
+- control-plane: `/control-plane`
+
 ## Core Runtime Roles
 
 The backend image is role-aware through `APP_ROLE`:

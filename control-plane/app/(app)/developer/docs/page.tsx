@@ -1,7 +1,8 @@
 import { AppCard, PageHeader } from '@/components/ui/primitives';
+import { getSwaggerUrl } from '@/lib/runtime-env';
 
 export default function ApiDocsPage(): React.ReactElement {
-  const swaggerUrl = process.env.NEXT_PUBLIC_BACKEND_SWAGGER_URL ?? 'http://localhost:3000/api/v1/docs';
+  const swaggerUrl = getSwaggerUrl();
 
   return (
     <div className="space-y-6">

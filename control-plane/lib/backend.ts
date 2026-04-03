@@ -1,12 +1,9 @@
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { Role, SessionData } from './api-types';
+import { getBackendBaseUrl } from './runtime-env';
 
 export const SESSION_COOKIE_NAME = 'sms_cp_token';
-
-export function getBackendBaseUrl(): string {
-  return process.env.BACKEND_BASE_URL ?? 'http://localhost:3000/api/v1';
-}
 
 export async function backendFetch<T>(
   path: string,

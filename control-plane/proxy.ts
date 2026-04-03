@@ -1,17 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { SESSION_COOKIE_NAME } from '@/lib/backend';
+import { getBackendBaseUrl } from '@/lib/runtime-env';
 
 const PUBLIC_PATHS = ['/login', '/unauthorized'];
 const AUTH_CHECK_PATH = '/auth/me';
-const BACKEND_BASE_URL = process.env.BACKEND_BASE_URL ?? 'http://localhost:3000/api/v1';
 
 function isPublicPath(pathname: string): boolean {
   return PUBLIC_PATHS.includes(pathname);
 }
 
 async function validateSession(token: string): Promise<boolean | null> {
+  const backendBaseUrl = getBackendBaseUrl();
+
   try {
-    const response = await fetch(`${BACKEND_BASE_URL}${AUTH_CHECK_PATH}`, {
+    const response = await fetch(`${backendBaseUrl}${AUTH_CHECK_PATH}`, {
       headers: {
         authorization: `Bearer ${token}`,
       },

@@ -71,3 +71,19 @@ APP_ENV=staging ALLOW_STAGING_TEST_USER_SEED=true STAGING_TEST_SHARED_PASSWORD=x
 ```
 
 Do not set `ALLOW_STAGING_TEST_USER_SEED=true` in the long-lived production app configuration.
+
+## Railway
+
+Run the same command from the **api service shell** after PostgreSQL, Redis, Kafka variables, and JWT keys are in place:
+
+```bash
+APP_ENV=staging ALLOW_STAGING_TEST_USER_SEED=true STAGING_TEST_SHARED_PASSWORD=xSMS-Staging-2026!FRA#7NqLm4Pz node scripts/seed-staging-test-users.mjs
+```
+
+If you want to verify the plan before mutating the database:
+
+```bash
+APP_ENV=staging ALLOW_STAGING_TEST_USER_SEED=true STAGING_TEST_SHARED_PASSWORD=xSMS-Staging-2026!FRA#7NqLm4Pz node scripts/seed-staging-test-users.mjs --plan
+```
+
+Never set `ALLOW_STAGING_TEST_USER_SEED=true` on a production Railway service.
