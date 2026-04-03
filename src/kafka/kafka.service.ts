@@ -14,6 +14,9 @@ export class KafkaService implements OnApplicationBootstrap, OnApplicationShutdo
   private readonly kafka: Kafka;
   private readonly producer: Producer;
   private readonly consumers: Consumer[] = [];
+  private producerConnected = false;
+  private shuttingDown = false;
+  private readonly consumerHealth = new Map<string, { topic: string; connected: boolean }>();
 
   constructor(
     configService: ConfigService,
@@ -42,6 +45,7 @@ export class KafkaService implements OnApplicationBootstrap, OnApplicationShutdo
 
   async onApplicationBootstrap(): Promise<void> {
     await this.producer.connect();
+    this.producerConnected = true;
   }
 
   async publish(record: ProducerRecord): Promise<void> {
@@ -60,7 +64,9 @@ export class KafkaService implements OnApplicationBootstrap, OnApplicationShutdo
     onMessage: (message: { topic: string; key: string | null; value: string }) => Promise<void>,
   ): Promise<void> {
     const consumer = this.kafka.consumer({ groupId });
+    const healthKey = `${groupId}:${topic}`;
     await consumer.connect();
+    this.consumerHealth.set(healthKey, { topic, connected: true });
     await consumer.subscribe({ topic, fromBeginning: false });
     await consumer.run({
       eachMessage: async ({ topic: messageTopic, message }) => {
@@ -82,9 +88,29 @@ export class KafkaService implements OnApplicationBootstrap, OnApplicationShutdo
     this.consumers.push(consumer);
   }
 
+  getHealth(): { producerConnected: boolean; connectedConsumers: number; totalConsumers: number; shuttingDown: boolean } {
+    return {
+      producerConnected: this.producerConnected,
+      connectedConsumers: [...this.consumerHealth.values()].filter((entry) => entry.connected).length,
+      totalConsumers: this.consumerHealth.size,
+      shuttingDown: this.shuttingDown,
+    };
+  }
+
   async onApplicationShutdown(): Promise<void> {
     this.logger.log('Closing Kafka connections');
-    await Promise.all(this.consumers.map((consumer) => consumer.disconnect()));
+    this.shuttingDown = true;
+    await Promise.all(this.consumers.map(async (consumer) => {
+      await consumer.stop();
+      await consumer.disconnect();
+    }));
+    for (const key of this.consumerHealth.keys()) {
+      this.consumerHealth.set(key, {
+        ...(this.consumerHealth.get(key) ?? { topic: key, connected: false }),
+        connected: false,
+      });
+    }
     await this.producer.disconnect();
+    this.producerConnected = false;
   }
 }

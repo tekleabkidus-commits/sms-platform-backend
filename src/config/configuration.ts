@@ -16,6 +16,20 @@ const parseNumber = (value: string | undefined, defaultValue: number): number =>
 };
 
 export default () => ({
+  app: {
+    name: 'sms-platform-backend',
+    environment: process.env.NODE_ENV ?? 'development',
+    role: process.env.APP_ROLE ?? 'all',
+    port: parseNumber(process.env.PORT, 3000),
+    host: process.env.HOST ?? '0.0.0.0',
+    logLevel: process.env.LOG_LEVEL ?? 'log',
+    trustProxy: parseBoolean(process.env.TRUST_PROXY, false),
+    corsAllowedOrigins: (process.env.CORS_ALLOWED_ORIGINS ?? '')
+      .split(',')
+      .map((value) => value.trim())
+      .filter(Boolean),
+    shutdownTimeoutMs: parseNumber(process.env.SHUTDOWN_TIMEOUT_MS, 15000),
+  },
   nodeEnv: process.env.NODE_ENV ?? 'development',
   port: parseNumber(process.env.PORT, 3000),
   apiPrefix: process.env.API_PREFIX ?? 'api/v1',
@@ -33,6 +47,7 @@ export default () => ({
     port: parseNumber(process.env.REDIS_PORT, 6379),
     username: process.env.REDIS_USERNAME ?? undefined,
     password: process.env.REDIS_PASSWORD ?? undefined,
+    db: parseNumber(process.env.REDIS_DB, 0),
   },
   kafka: {
     clientId: process.env.KAFKA_CLIENT_ID ?? 'sms-platform-backend',
@@ -49,11 +64,21 @@ export default () => ({
   },
   providers: {
     httpTimeoutMs: parseNumber(process.env.HTTP_PROVIDER_TIMEOUT_MS, 10000),
+    unknownOutcomeTimeoutMs: parseNumber(process.env.PROVIDER_UNKNOWN_OUTCOME_TIMEOUT_MS, 15000),
     smppEnquireLinkSeconds: parseNumber(process.env.SMPP_ENQUIRE_LINK_SECONDS, 30),
     smppDefaultWindowSize: parseNumber(process.env.SMPP_DEFAULT_WINDOW_SIZE, 16),
   },
+  circuitBreaker: {
+    failureThreshold: parseNumber(process.env.CIRCUIT_BREAKER_FAILURE_THRESHOLD, 3),
+    openSeconds: parseNumber(process.env.CIRCUIT_BREAKER_OPEN_SECONDS, 60),
+    halfOpenProbeSeconds: parseNumber(process.env.CIRCUIT_BREAKER_HALF_OPEN_PROBE_SECONDS, 10),
+  },
   outbox: {
     batchSize: parseNumber(process.env.OUTBOX_BATCH_SIZE, 100),
+    publishLeaseSeconds: parseNumber(process.env.OUTBOX_PUBLISH_LEASE_SECONDS, 300),
+  },
+  secrets: {
+    allowInsecurePlainText: parseBoolean(process.env.ALLOW_INSECURE_PLAIN_SECRETS, false),
   },
   metrics: {
     defaultMetrics: parseBoolean(process.env.PROMETHEUS_DEFAULT_METRICS, true),

@@ -154,7 +154,10 @@ CREATE TABLE campaign_schedules (
   campaign_id BIGINT NOT NULL REFERENCES campaigns(id) ON DELETE CASCADE,
   template_ref VARCHAR(100) NOT NULL,
   sender_id VARCHAR(20) NOT NULL,
+  contact_group_id BIGINT,
+  contact_upload_id BIGINT,
   recurrence_cron VARCHAR(64),
+  timezone VARCHAR(64) NOT NULL DEFAULT 'UTC',
   next_run_at TIMESTAMPTZ NOT NULL,
   shard_count INTEGER NOT NULL DEFAULT 4,
   is_active BOOLEAN NOT NULL DEFAULT TRUE,
@@ -226,8 +229,25 @@ CREATE TABLE contact_uploads (
   metadata JSONB NOT NULL DEFAULT '{}'::jsonb
 );
 
+CREATE TABLE contact_upload_errors (
+  id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  contact_upload_id BIGINT NOT NULL REFERENCES contact_uploads(id) ON DELETE CASCADE,
+  row_number BIGINT NOT NULL,
+  raw_record JSONB NOT NULL DEFAULT '{}'::jsonb,
+  error_reason TEXT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
 ALTER TABLE campaign_jobs
   ADD CONSTRAINT fk_campaign_jobs_contact_uploads
+  FOREIGN KEY (contact_upload_id) REFERENCES contact_uploads(id) ON DELETE SET NULL;
+
+ALTER TABLE campaign_schedules
+  ADD CONSTRAINT fk_campaign_schedules_contact_groups
+  FOREIGN KEY (contact_group_id) REFERENCES contact_groups(id) ON DELETE SET NULL;
+
+ALTER TABLE campaign_schedules
+  ADD CONSTRAINT fk_campaign_schedules_contact_uploads
   FOREIGN KEY (contact_upload_id) REFERENCES contact_uploads(id) ON DELETE SET NULL;
 
 CREATE TABLE api_keys (
@@ -284,6 +304,28 @@ CREATE TABLE fraud_rules (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+CREATE TABLE opt_outs (
+  id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  phone_number VARCHAR(20) NOT NULL,
+  reason TEXT,
+  is_active BOOLEAN NOT NULL DEFAULT TRUE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE (tenant_id, phone_number)
+);
+
+CREATE TABLE suppression_lists (
+  id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  phone_number VARCHAR(20) NOT NULL,
+  reason TEXT,
+  is_active BOOLEAN NOT NULL DEFAULT TRUE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE (tenant_id, phone_number)
+);
+
 CREATE TABLE messages (
   id BIGINT GENERATED ALWAYS AS IDENTITY,
   submit_date DATE NOT NULL,
@@ -324,6 +366,54 @@ CREATE TABLE messages (
 ) PARTITION BY RANGE (submit_date);
 
 CREATE TABLE messages_default PARTITION OF messages DEFAULT;
+
+CREATE OR REPLACE FUNCTION enforce_message_state_transition()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  IF NEW.version <> OLD.version + 1 THEN
+    RAISE EXCEPTION 'messages.version must increment by exactly 1';
+  END IF;
+
+  IF NEW.state_changed_at <= OLD.state_changed_at THEN
+    RAISE EXCEPTION 'messages.state_changed_at must move forward';
+  END IF;
+
+  IF NEW.status = OLD.status THEN
+    RETURN NEW;
+  END IF;
+
+  IF OLD.status = 'accepted' AND NEW.status = 'routed' THEN
+    RETURN NEW;
+  END IF;
+
+  IF OLD.status = 'routed' AND NEW.status = 'submitting' THEN
+    RETURN NEW;
+  END IF;
+
+  IF OLD.status = 'submitting' AND NEW.status IN ('provider_accepted', 'failed') THEN
+    RETURN NEW;
+  END IF;
+
+  IF OLD.status = 'provider_accepted' AND NEW.status = 'delivered' THEN
+    RETURN NEW;
+  END IF;
+
+  IF OLD.status = 'provider_accepted'
+    AND NEW.status = 'failed'
+    AND COALESCE(NEW.last_error_code, '') = 'dlr_failed' THEN
+    RETURN NEW;
+  END IF;
+
+  RAISE EXCEPTION 'illegal message status transition % -> %', OLD.status, NEW.status;
+END;
+$$;
+
+CREATE TRIGGER trg_messages_enforce_state_transition
+BEFORE UPDATE ON messages
+FOR EACH ROW
+EXECUTE FUNCTION enforce_message_state_transition();
 
 CREATE TABLE message_logs (
   id BIGINT GENERATED ALWAYS AS IDENTITY,
@@ -442,27 +532,65 @@ CREATE TABLE provider_health_logs (
 
 CREATE TABLE provider_health_logs_default PARTITION OF provider_health_logs DEFAULT;
 
+CREATE TABLE reconciliation_events (
+  id BIGINT GENERATED ALWAYS AS IDENTITY,
+  event_date DATE NOT NULL DEFAULT CURRENT_DATE,
+  tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE,
+  provider_id BIGINT REFERENCES providers(id) ON DELETE SET NULL,
+  message_submit_date DATE,
+  message_id BIGINT,
+  kind VARCHAR(50) NOT NULL,
+  reason VARCHAR(100) NOT NULL,
+  payload JSONB NOT NULL DEFAULT '{}'::jsonb,
+  status VARCHAR(20) NOT NULL DEFAULT 'pending',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (event_date, id)
+) PARTITION BY RANGE (event_date);
+
+CREATE TABLE reconciliation_events_default PARTITION OF reconciliation_events DEFAULT;
+
+CREATE TABLE archival_runs (
+  id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  table_name VARCHAR(100) NOT NULL,
+  partition_name VARCHAR(150) NOT NULL,
+  storage_uri TEXT NOT NULL,
+  state VARCHAR(20) NOT NULL DEFAULT 'pending',
+  checksum_sha256 CHAR(64),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  completed_at TIMESTAMPTZ
+);
+
 CREATE INDEX idx_users_tenant_active ON users (tenant_id, is_active);
 CREATE INDEX idx_routing_rules_lookup ON routing_rules (tenant_id, traffic_type, is_active, priority, failover_order);
 CREATE INDEX idx_pricing_rules_sell_lookup ON pricing_rules (kind, tenant_id, country_code, traffic_type, effective_from DESC);
 CREATE INDEX idx_pricing_rules_cost_lookup ON pricing_rules (kind, provider_id, country_code, traffic_type, effective_from DESC);
+CREATE INDEX idx_retry_policies_lookup ON retry_policies (tenant_id, provider_id, traffic_type, is_active);
 CREATE INDEX idx_sender_ids_tenant_status ON sender_ids (tenant_id, status);
 CREATE INDEX idx_templates_tenant_name ON templates (tenant_id, name, version DESC);
 CREATE INDEX idx_fraud_rules_tenant_active ON fraud_rules (tenant_id, is_active);
 CREATE INDEX idx_contacts_tenant_phone ON contacts (tenant_id, phone_number);
+CREATE INDEX idx_contact_upload_errors_upload_row ON contact_upload_errors (contact_upload_id, row_number);
+CREATE INDEX idx_opt_outs_tenant_phone ON opt_outs (tenant_id, phone_number) WHERE is_active = TRUE;
+CREATE INDEX idx_suppression_lists_tenant_phone ON suppression_lists (tenant_id, phone_number) WHERE is_active = TRUE;
 CREATE INDEX idx_campaign_jobs_tenant_status_created ON campaign_jobs (tenant_id, status, created_at DESC);
 CREATE INDEX idx_campaign_schedules_next_run ON campaign_schedules (is_active, next_run_at);
 CREATE INDEX idx_messages_tenant_status ON messages (tenant_id, status, accepted_at DESC);
 CREATE INDEX idx_messages_phone_number ON messages (tenant_id, phone_number, accepted_at DESC);
 CREATE INDEX idx_messages_provider_msgid ON messages (provider_id, provider_message_id);
 CREATE INDEX idx_messages_phone_sent_at ON messages (tenant_id, phone_number, sent_at DESC) WHERE sent_at IS NOT NULL;
+CREATE INDEX idx_messages_tenant_api_key ON messages (tenant_id, api_key_id, accepted_at DESC);
 CREATE UNIQUE INDEX uq_messages_api_idempotency ON messages (submit_date, tenant_id, api_idempotency_key);
 CREATE INDEX idx_message_logs_message ON message_logs (tenant_id, message_submit_date, message_id, created_at DESC);
 CREATE INDEX idx_transactions_tenant_created ON transactions (tenant_id, created_at DESC);
 CREATE UNIQUE INDEX uq_transactions_idempotency ON transactions (ledger_date, tenant_id, idempotency_key);
+CREATE INDEX idx_api_keys_tenant_active ON api_keys (tenant_id, is_active);
 CREATE INDEX idx_outbox_status_created ON outbox_events (status, next_attempt_at, created_at);
+CREATE INDEX idx_outbox_tenant_created ON outbox_events (tenant_id, created_at DESC);
 CREATE UNIQUE INDEX uq_outbox_dedupe ON outbox_events (event_date, dedupe_key);
 CREATE INDEX idx_dlr_webhooks_processed_received ON dlr_webhooks (processed, received_at);
 CREATE INDEX idx_dlr_webhooks_provider_msgid ON dlr_webhooks (provider_id, provider_message_id);
+CREATE UNIQUE INDEX uq_dlr_webhooks_callback_id ON dlr_webhooks (received_date, provider_id, callback_id) WHERE callback_id IS NOT NULL;
 CREATE INDEX idx_audit_logs_tenant_created ON audit_logs (tenant_id, created_at DESC);
 CREATE INDEX idx_provider_health_provider_time ON provider_health_logs (provider_id, recorded_at DESC);
+CREATE INDEX idx_reconciliation_events_lookup ON reconciliation_events (status, created_at DESC, provider_id);

@@ -1,0 +1,16 @@
+resources:
+  - configmaps.yaml
+  - serviceaccount.yaml
+  - api.yaml
+  - workers.yaml
+  - control-plane.yaml
+  - ingress.yaml
+  - policies.yaml
+
+images:
+  - name: sms-platform-backend
+    newName: ghcr.io/example/sms-platform-backend
+    newTag: latest
+  - name: sms-platform-control-plane
+    newName: ghcr.io/example/sms-platform-control-plane
+    newTag: latest

@@ -5,6 +5,7 @@ export const KafkaTopics = {
   SmsDispatchBulk: 'sms.dispatch.bulk',
   SmsRetry: 'sms.retry',
   SmsDlr: 'sms.dlr',
+  SmsReconcile: 'sms.reconcile',
   SmsDispatchResults: 'sms.dispatch.results',
   SmsDlq: 'sms.dlq',
   FraudAlerts: 'fraud.alerts',

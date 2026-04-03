@@ -3,3 +3,9 @@ dist/
 coverage/
 .env
 npm-debug.log*
+control-plane/.next/
+control-plane/coverage/
+control-plane/playwright-report/
+control-plane/test-results/
+control-plane/.env.local
+control-plane/*.tsbuildinfo

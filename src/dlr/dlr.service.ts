@@ -10,20 +10,31 @@ export class DlrService {
     private readonly outboxService: OutboxService,
   ) {}
 
+  private extractFirstString(payload: Record<string, unknown>, keys: string[]): string | null {
+    for (const key of keys) {
+      const value = payload[key];
+      if (typeof value === 'string' && value.length > 0) {
+        return value;
+      }
+    }
+    return null;
+  }
+
   private normalizeStatus(payload: Record<string, unknown>): string {
     const candidates = [
       payload.status,
       payload.deliveryStatus,
       payload.delivery_status,
       payload.message_status,
+      payload.state,
     ]
       .filter((value): value is string => typeof value === 'string')
       .map((value) => value.toLowerCase());
 
-    if (candidates.some((value) => ['delivered', 'deliverd', 'success'].includes(value))) {
+    if (candidates.some((value) => ['delivered', 'deliverd', 'success', 'successdelivrd'].includes(value))) {
       return 'delivered';
     }
-    if (candidates.some((value) => ['failed', 'undelivered', 'rejected', 'expired'].includes(value))) {
+    if (candidates.some((value) => ['failed', 'undelivered', 'rejected', 'expired', 'deleted'].includes(value))) {
       return 'failed';
     }
     return 'unknown';
@@ -43,12 +54,18 @@ export class DlrService {
       throw new NotFoundException('Provider not found');
     }
 
+    const providerMessageId = this.extractFirstString(payload, ['providerMessageId', 'provider_message_id', 'messageId', 'message_id']);
+    const callbackId = this.extractFirstString(payload, ['callbackId', 'callback_id', 'eventId', 'event_id'])
+      ?? (typeof headers['x-request-id'] === 'string' ? headers['x-request-id'] : null);
+    const tenantId = this.extractFirstString(payload, ['tenantId', 'tenant_id']);
+
     await this.databaseService.withTransaction(async (tx) => {
       const insert = await tx.client.query<{ id: number; received_date: string }>(
         `
           INSERT INTO dlr_webhooks (
             received_date,
             provider_id,
+            tenant_id,
             provider_message_id,
             callback_id,
             headers,
@@ -64,14 +81,24 @@ export class DlrService {
             $4,
             $5,
             $6,
+            $7,
             FALSE
           )
+          ON CONFLICT (received_date, provider_id, callback_id)
+          WHERE callback_id IS NOT NULL
+          DO UPDATE SET
+            tenant_id = COALESCE(dlr_webhooks.tenant_id, EXCLUDED.tenant_id),
+            provider_message_id = COALESCE(EXCLUDED.provider_message_id, dlr_webhooks.provider_message_id),
+            headers = EXCLUDED.headers,
+            payload = EXCLUDED.payload,
+            normalized_status = EXCLUDED.normalized_status
           RETURNING id, received_date
         `,
         [
           provider.id,
-          typeof payload.providerMessageId === 'string' ? payload.providerMessageId : null,
-          typeof payload.callbackId === 'string' ? payload.callbackId : null,
+          tenantId,
+          providerMessageId,
+          callbackId,
           JSON.stringify(headers),
           JSON.stringify(payload),
           this.normalizeStatus(payload),
@@ -83,6 +110,7 @@ export class DlrService {
         throw new NotFoundException('Unable to persist DLR webhook');
       }
       await this.outboxService.enqueue({
+        tenantId: tenantId ?? undefined,
         aggregateType: 'dlr_webhook',
         aggregateId: `${row.received_date}:${row.id}`,
         eventType: 'dlr.received',

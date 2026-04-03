@@ -34,6 +34,7 @@ export class OutboxService {
             next_attempt_at
           )
           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'pending', $9)
+          ON CONFLICT (event_date, dedupe_key) DO NOTHING
         `,
         [
           event.tenantId ?? null,
@@ -65,6 +66,7 @@ export class OutboxService {
           next_attempt_at
         )
         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'pending', $9)
+        ON CONFLICT (event_date, dedupe_key) DO NOTHING
       `,
       [
         event.tenantId ?? null,

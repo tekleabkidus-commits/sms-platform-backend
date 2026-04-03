@@ -1,0 +1,3 @@
+resources:
+  - prometheus-rules.yaml
+  - servicemonitors.yaml

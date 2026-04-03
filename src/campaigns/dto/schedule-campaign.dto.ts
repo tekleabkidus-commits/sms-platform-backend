@@ -31,6 +31,18 @@ export class ScheduleCampaignDto {
   @IsString()
   senderId!: string;
 
+  @ApiPropertyOptional({ example: 42 })
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  contactGroupId?: number;
+
+  @ApiPropertyOptional({ example: 12 })
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  contactUploadId?: number;
+
   @ApiPropertyOptional({ example: 8 })
   @IsOptional()
   @IsInt()

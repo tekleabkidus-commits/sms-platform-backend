@@ -5,6 +5,7 @@ describe('OutboxRelayService', () => {
     const client = {
       query: jest
         .fn()
+        .mockResolvedValueOnce({ rowCount: 0, rows: [] })
         .mockResolvedValueOnce({
           rowCount: 1,
           rows: [
@@ -18,7 +19,7 @@ describe('OutboxRelayService', () => {
             },
           ],
         })
-        .mockResolvedValueOnce({ rowCount: 1, rows: [] }),
+        .mockResolvedValue({ rowCount: 1, rows: [] }),
     };
 
     const databaseService = {
@@ -36,6 +37,8 @@ describe('OutboxRelayService', () => {
       configService as never,
       databaseService as never,
       kafkaService as never,
+      { hasCapability: jest.fn().mockReturnValue(true) } as never,
+      { setOutboxBacklog: jest.fn() } as never,
     );
 
     await service.flushBatch();

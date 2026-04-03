@@ -13,8 +13,13 @@ export class RedisService implements OnModuleDestroy {
       port: configService.getOrThrow<number>('redis.port'),
       username: configService.get<string>('redis.username'),
       password: configService.get<string>('redis.password'),
+      db: configService.get<number>('redis.db'),
       lazyConnect: false,
       maxRetriesPerRequest: 1,
+    });
+
+    this.client.on('error', (error) => {
+      this.logger.error('Redis client error', error.stack);
     });
   }
 
@@ -35,6 +40,14 @@ export class RedisService implements OnModuleDestroy {
     }
 
     await this.client.set(key, serialized);
+  }
+
+  async delete(key: string): Promise<void> {
+    await this.client.del(key);
+  }
+
+  async ping(): Promise<void> {
+    await this.client.ping();
   }
 
   async onModuleDestroy(): Promise<void> {

@@ -1,0 +1,14 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: sms-platform
+spec:
+  selector:
+    matchLabels:
+      metrics: "true"
+  namespaceSelector:
+    any: true
+  endpoints:
+    - port: http
+      path: /api/v1/metrics
+      interval: 30s

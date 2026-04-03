@@ -9,6 +9,8 @@ interface SenderIdRow {
   sender_name: string;
   status: string;
   created_at: string;
+  rejection_reason?: string | null;
+  approved_at?: string | null;
 }
 
 @Injectable()
@@ -35,7 +37,7 @@ export class SenderIdsService {
   async list(tenantId: string): Promise<Record<string, unknown>[]> {
     const result = await this.databaseService.query<SenderIdRow>(
       `
-        SELECT id, tenant_id, provider_id, sender_name, status, created_at
+        SELECT id, tenant_id, provider_id, sender_name, status, rejection_reason, approved_at, created_at
         FROM sender_ids
         WHERE tenant_id = $1
         ORDER BY created_at DESC
@@ -68,6 +70,50 @@ export class SenderIdsService {
     }
   }
 
+  async approve(id: number): Promise<Record<string, unknown>> {
+    const result = await this.databaseService.query<SenderIdRow>(
+      `
+        UPDATE sender_ids
+        SET status = 'approved',
+            rejection_reason = NULL,
+            approved_at = now(),
+            updated_at = now()
+        WHERE id = $1
+        RETURNING id, tenant_id, provider_id, sender_name, status, rejection_reason, approved_at, created_at
+      `,
+      [id],
+    );
+
+    const row = result.rows[0];
+    if (!row) {
+      throw new NotFoundException('Sender ID not found');
+    }
+
+    return this.toResponse(row);
+  }
+
+  async reject(id: number, reason?: string): Promise<Record<string, unknown>> {
+    const result = await this.databaseService.query<SenderIdRow>(
+      `
+        UPDATE sender_ids
+        SET status = 'rejected',
+            rejection_reason = $2,
+            approved_at = NULL,
+            updated_at = now()
+        WHERE id = $1
+        RETURNING id, tenant_id, provider_id, sender_name, status, rejection_reason, approved_at, created_at
+      `,
+      [id, reason ?? 'Rejected during review'],
+    );
+
+    const row = result.rows[0];
+    if (!row) {
+      throw new NotFoundException('Sender ID not found');
+    }
+
+    return this.toResponse(row);
+  }
+
   private toResponse(row: SenderIdRow): Record<string, unknown> {
     return {
       id: row.id,
@@ -75,6 +121,8 @@ export class SenderIdsService {
       providerId: row.provider_id,
       senderName: row.sender_name,
       status: row.status,
+      rejectionReason: row.rejection_reason ?? null,
+      approvedAt: row.approved_at ?? null,
       createdAt: row.created_at,
     };
   }

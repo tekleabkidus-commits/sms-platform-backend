@@ -7,9 +7,9 @@ export type MessageStatus =
   | 'failed';
 
 export const AllowedTransitions: Record<MessageStatus, MessageStatus[]> = {
-  accepted: ['routed', 'failed'],
-  routed: ['submitting', 'failed'],
-  submitting: ['routed', 'provider_accepted', 'failed'],
+  accepted: ['routed'],
+  routed: ['submitting'],
+  submitting: ['provider_accepted', 'failed'],
   provider_accepted: ['delivered', 'failed'],
   delivered: [],
   failed: [],

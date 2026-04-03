@@ -1,55 +1,240 @@
-version: '3.9'
+x-backend-env: &backend-env
+  NODE_ENV: ${NODE_ENV:-development}
+  HOST: 0.0.0.0
+  PORT: 3000
+  API_PREFIX: ${API_PREFIX:-api/v1}
+  LOG_LEVEL: ${LOG_LEVEL:-log}
+  TRUST_PROXY: "true"
+  CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:3001}
+  SHUTDOWN_TIMEOUT_MS: ${SHUTDOWN_TIMEOUT_MS:-15000}
+  POSTGRES_HOST: postgres
+  POSTGRES_PORT: 5432
+  POSTGRES_USER: ${POSTGRES_USER:-postgres}
+  POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+  POSTGRES_DATABASE: ${POSTGRES_DATABASE:-sms_platform}
+  POSTGRES_MAX_POOL: ${POSTGRES_MAX_POOL:-20}
+  POSTGRES_SSL: "false"
+  REDIS_HOST: redis
+  REDIS_PORT: 6379
+  REDIS_DB: ${REDIS_DB:-0}
+  KAFKA_CLIENT_ID: ${KAFKA_CLIENT_ID:-sms-platform-backend}
+  KAFKA_BROKERS: kafka:9092
+  KAFKA_GROUP_ID: ${KAFKA_GROUP_ID:-sms-platform-backend}
+  KAFKA_SSL: "false"
+  JWT_PUBLIC_KEY: ${JWT_PUBLIC_KEY:-replace-me}
+  JWT_PRIVATE_KEY: ${JWT_PRIVATE_KEY:-replace-me}
+  HTTP_PROVIDER_TIMEOUT_MS: ${HTTP_PROVIDER_TIMEOUT_MS:-10000}
+  PROVIDER_UNKNOWN_OUTCOME_TIMEOUT_MS: ${PROVIDER_UNKNOWN_OUTCOME_TIMEOUT_MS:-15000}
+  OUTBOX_BATCH_SIZE: ${OUTBOX_BATCH_SIZE:-100}
+  OUTBOX_PUBLISH_LEASE_SECONDS: ${OUTBOX_PUBLISH_LEASE_SECONDS:-30}
+  ALLOW_INSECURE_PLAIN_SECRETS: ${ALLOW_INSECURE_PLAIN_SECRETS:-false}
+  PROMETHEUS_DEFAULT_METRICS: ${PROMETHEUS_DEFAULT_METRICS:-true}
+  SMPP_ENQUIRE_LINK_SECONDS: ${SMPP_ENQUIRE_LINK_SECONDS:-30}
+  SMPP_DEFAULT_WINDOW_SIZE: ${SMPP_DEFAULT_WINDOW_SIZE:-16}
+  CIRCUIT_BREAKER_FAILURE_THRESHOLD: ${CIRCUIT_BREAKER_FAILURE_THRESHOLD:-3}
+  CIRCUIT_BREAKER_OPEN_SECONDS: ${CIRCUIT_BREAKER_OPEN_SECONDS:-30}
+  CIRCUIT_BREAKER_HALF_OPEN_PROBE_SECONDS: ${CIRCUIT_BREAKER_HALF_OPEN_PROBE_SECONDS:-10}
+
 services:
   postgres:
-    image: postgres:16
+    image: postgres:16-alpine
     environment:
-      POSTGRES_DB: sms_platform
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: ${POSTGRES_DATABASE:-sms_platform}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
     ports:
-      - '5432:5432'
+      - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DATABASE:-sms_platform}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
 
   redis:
-    image: redis:7
+    image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "yes"]
     ports:
-      - '6379:6379'
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
 
   zookeeper:
     image: bitnami/zookeeper:3.9
     environment:
-      ALLOW_ANONYMOUS_LOGIN: 'yes'
+      ALLOW_ANONYMOUS_LOGIN: "yes"
     ports:
-      - '2181:2181'
+      - "2181:2181"
+    healthcheck:
+      test: ["CMD-SHELL", "echo ruok | nc -w 2 127.0.0.1 2181 | grep imok"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
 
   kafka:
     image: bitnami/kafka:3.7
     depends_on:
-      - zookeeper
+      zookeeper:
+        condition: service_healthy
     environment:
       KAFKA_CFG_ZOOKEEPER_CONNECT: zookeeper:2181
       KAFKA_CFG_LISTENERS: PLAINTEXT://:9092
-      KAFKA_CFG_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092
-      KAFKA_CFG_AUTO_CREATE_TOPICS_ENABLE: 'true'
-      ALLOW_PLAINTEXT_LISTENER: 'yes'
+      KAFKA_CFG_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_CFG_AUTO_CREATE_TOPICS_ENABLE: "true"
+      ALLOW_PLAINTEXT_LISTENER: "yes"
     ports:
-      - '9092:9092'
+      - "9092:9092"
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/bitnami/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --list >/dev/null 2>&1"]
+      interval: 10s
+      timeout: 10s
+      retries: 12
 
-  backend:
-    build: .
+  migrate:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    profiles: ["tools"]
     depends_on:
-      - postgres
-      - redis
-      - kafka
-    env_file:
-      - .env.example
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
     environment:
-      POSTGRES_HOST: postgres
-      REDIS_HOST: redis
-      KAFKA_BROKERS: kafka:9092
+      <<: *backend-env
+      APP_ROLE: api
+    command: ["node", "scripts/run-migrations.mjs"]
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    environment:
+      <<: *backend-env
+      APP_ROLE: api
     ports:
-      - '3000:3000'
+      - "3000:3000"
+
+  worker-dispatch:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    environment:
+      <<: *backend-env
+      APP_ROLE: worker-dispatch
+
+  worker-dlr:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    environment:
+      <<: *backend-env
+      APP_ROLE: worker-dlr
+
+  worker-outbox:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    environment:
+      <<: *backend-env
+      APP_ROLE: worker-outbox
+
+  worker-campaign:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    environment:
+      <<: *backend-env
+      APP_ROLE: worker-campaign
+
+  worker-fraud:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    environment:
+      <<: *backend-env
+      APP_ROLE: worker-fraud
+
+  worker-reconciliation:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    environment:
+      <<: *backend-env
+      APP_ROLE: worker-reconciliation
+
+  control-plane:
+    build:
+      context: ./control-plane
+      dockerfile: Dockerfile
+    depends_on:
+      api:
+        condition: service_started
+    environment:
+      PORT: 3001
+      BACKEND_BASE_URL: http://api:3000/api/v1
+      NEXT_PUBLIC_BACKEND_SWAGGER_URL: http://localhost:3000/api/v1/docs
+      NEXT_PUBLIC_APP_ENV: ${NEXT_PUBLIC_APP_ENV:-local}
+    ports:
+      - "3001:3001"
 
 volumes:
   postgres_data:
+  redis_data:

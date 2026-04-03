@@ -28,4 +28,10 @@ export class FraudController {
   listRules(@CurrentUser() user: JwtClaims): Promise<Record<string, unknown>[]> {
     return this.fraudService.listRules(user.tenantId);
   }
+
+  @Roles('owner', 'admin', 'support')
+  @Get('events')
+  listEvents(@CurrentUser() user: JwtClaims): Promise<Record<string, unknown>[]> {
+    return this.fraudService.listEvents(user.tenantId);
+  }
 }

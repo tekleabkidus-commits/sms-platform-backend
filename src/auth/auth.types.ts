@@ -3,8 +3,15 @@ import { Request } from 'express';
 export interface JwtClaims {
   sub: string;
   tenantId: string;
+  homeTenantId?: string;
   role: string;
   email?: string;
+}
+
+export interface ReauthClaims extends JwtClaims {
+  kind: 'reauth';
+  scope: 'dangerous_action';
+  reauthAt: number;
 }
 
 export interface ApiPrincipal {

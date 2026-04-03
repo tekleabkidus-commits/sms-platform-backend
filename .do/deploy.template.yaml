@@ -1,0 +1,317 @@
+spec:
+  name: x-sms
+  region: fra
+  alerts:
+    - rule: DEPLOYMENT_FAILED
+    - rule: DOMAIN_FAILED
+  envs:
+    - key: APP_ENV
+      scope: RUN_TIME
+      value: production
+    - key: NODE_ENV
+      scope: RUN_TIME
+      value: production
+    - key: HOST
+      scope: RUN_TIME
+      value: 0.0.0.0
+    - key: API_PREFIX
+      scope: RUN_TIME
+      value: api/v1
+    - key: LOG_LEVEL
+      scope: RUN_TIME
+      value: log
+    - key: TRUST_PROXY
+      scope: RUN_TIME
+      value: "true"
+    - key: SHUTDOWN_TIMEOUT_MS
+      scope: RUN_TIME
+      value: "15000"
+    - key: POSTGRES_HOST
+      scope: RUN_TIME
+      value: REPLACE_WITH_MANAGED_POSTGRES_HOST
+    - key: POSTGRES_PORT
+      scope: RUN_TIME
+      value: "25060"
+    - key: POSTGRES_USER
+      scope: RUN_TIME
+      value: REPLACE_WITH_MANAGED_POSTGRES_USER
+    - key: POSTGRES_PASSWORD
+      scope: RUN_TIME
+      type: secret
+      value: REPLACE_WITH_MANAGED_POSTGRES_PASSWORD
+    - key: POSTGRES_DATABASE
+      scope: RUN_TIME
+      value: REPLACE_WITH_MANAGED_POSTGRES_DATABASE
+    - key: POSTGRES_MAX_POOL
+      scope: RUN_TIME
+      value: "20"
+    - key: POSTGRES_SSL
+      scope: RUN_TIME
+      value: "true"
+    - key: REDIS_HOST
+      scope: RUN_TIME
+      value: REPLACE_WITH_MANAGED_REDIS_HOST
+    - key: REDIS_PORT
+      scope: RUN_TIME
+      value: "25061"
+    - key: REDIS_USERNAME
+      scope: RUN_TIME
+      value: default
+    - key: REDIS_PASSWORD
+      scope: RUN_TIME
+      type: secret
+      value: REPLACE_WITH_MANAGED_REDIS_PASSWORD
+    - key: REDIS_DB
+      scope: RUN_TIME
+      value: "0"
+    - key: KAFKA_CLIENT_ID
+      scope: RUN_TIME
+      value: x-sms
+    - key: KAFKA_BROKERS
+      scope: RUN_TIME
+      value: REPLACE_WITH_MANAGED_KAFKA_BROKERS
+    - key: KAFKA_GROUP_ID
+      scope: RUN_TIME
+      value: x-sms
+    - key: KAFKA_SSL
+      scope: RUN_TIME
+      value: "true"
+    - key: KAFKA_SASL_MECHANISM
+      scope: RUN_TIME
+      value: SCRAM-SHA-512
+    - key: KAFKA_SASL_USERNAME
+      scope: RUN_TIME
+      value: REPLACE_WITH_MANAGED_KAFKA_USERNAME
+    - key: KAFKA_SASL_PASSWORD
+      scope: RUN_TIME
+      type: secret
+      value: REPLACE_WITH_MANAGED_KAFKA_PASSWORD
+    - key: JWT_PUBLIC_KEY
+      scope: RUN_TIME
+      type: secret
+      value: REPLACE_WITH_RS256_PUBLIC_KEY_PEM
+    - key: JWT_PRIVATE_KEY
+      scope: RUN_TIME
+      type: secret
+      value: REPLACE_WITH_RS256_PRIVATE_KEY_PEM
+    - key: HTTP_PROVIDER_TIMEOUT_MS
+      scope: RUN_TIME
+      value: "10000"
+    - key: PROVIDER_UNKNOWN_OUTCOME_TIMEOUT_MS
+      scope: RUN_TIME
+      value: "15000"
+    - key: OUTBOX_BATCH_SIZE
+      scope: RUN_TIME
+      value: "100"
+    - key: OUTBOX_PUBLISH_LEASE_SECONDS
+      scope: RUN_TIME
+      value: "300"
+    - key: ALLOW_INSECURE_PLAIN_SECRETS
+      scope: RUN_TIME
+      value: "false"
+    - key: PROMETHEUS_DEFAULT_METRICS
+      scope: RUN_TIME
+      value: "true"
+    - key: SMPP_ENQUIRE_LINK_SECONDS
+      scope: RUN_TIME
+      value: "30"
+    - key: SMPP_DEFAULT_WINDOW_SIZE
+      scope: RUN_TIME
+      value: "16"
+    - key: CIRCUIT_BREAKER_FAILURE_THRESHOLD
+      scope: RUN_TIME
+      value: "3"
+    - key: CIRCUIT_BREAKER_OPEN_SECONDS
+      scope: RUN_TIME
+      value: "60"
+    - key: CIRCUIT_BREAKER_HALF_OPEN_PROBE_SECONDS
+      scope: RUN_TIME
+      value: "10"
+  services:
+    - name: control-plane
+      git:
+        repo_clone_url: https://github.com/tekleabkidus-commits/sms-platform-backend
+        branch: main
+        deploy_on_push: true
+      source_dir: control-plane
+      environment_slug: node-js
+      build_command: npm run lint && npm run typecheck
+      run_command: npm run start
+      http_port: 8080
+      instance_size_slug: apps-s-1vcpu-0.5gb
+      instance_count: 1
+      health_check:
+        http_path: /api/health
+        initial_delay_seconds: 10
+        period_seconds: 15
+        timeout_seconds: 5
+        success_threshold: 1
+        failure_threshold: 6
+      envs:
+        - key: PORT
+          scope: RUN_TIME
+          value: "8080"
+        - key: HOSTNAME
+          scope: RUN_TIME
+          value: 0.0.0.0
+        - key: BACKEND_BASE_URL
+          scope: RUN_AND_BUILD_TIME
+          value: http://api:8080/api/v1
+        - key: NEXT_PUBLIC_BACKEND_SWAGGER_URL
+          scope: RUN_AND_BUILD_TIME
+          value: /backend/api/v1/docs
+        - key: NEXT_PUBLIC_APP_ENV
+          scope: RUN_AND_BUILD_TIME
+          value: production
+    - name: api
+      git:
+        repo_clone_url: https://github.com/tekleabkidus-commits/sms-platform-backend
+        branch: main
+        deploy_on_push: true
+      source_dir: .
+      environment_slug: node-js
+      build_command: npm run typecheck
+      run_command: npm run start:api
+      http_port: 8080
+      internal_ports:
+        - 8080
+      instance_size_slug: apps-s-1vcpu-1gb
+      instance_count: 1
+      health_check:
+        http_path: /api/v1/health/ready
+        initial_delay_seconds: 15
+        period_seconds: 10
+        timeout_seconds: 5
+        success_threshold: 1
+        failure_threshold: 6
+      envs:
+        - key: APP_ROLE
+          scope: RUN_TIME
+          value: api
+        - key: PORT
+          scope: RUN_TIME
+          value: "8080"
+        - key: CORS_ALLOWED_ORIGINS
+          scope: RUN_TIME
+          value: ""
+  workers:
+    - name: worker-dispatch
+      git:
+        repo_clone_url: https://github.com/tekleabkidus-commits/sms-platform-backend
+        branch: main
+        deploy_on_push: true
+      source_dir: .
+      environment_slug: node-js
+      build_command: npm run typecheck
+      run_command: npm run start:worker-dispatch
+      instance_size_slug: apps-s-1vcpu-1gb
+      instance_count: 1
+      envs:
+        - key: APP_ROLE
+          scope: RUN_TIME
+          value: worker-dispatch
+        - key: PORT
+          scope: RUN_TIME
+          value: "8080"
+    - name: worker-dlr
+      git:
+        repo_clone_url: https://github.com/tekleabkidus-commits/sms-platform-backend
+        branch: main
+        deploy_on_push: true
+      source_dir: .
+      environment_slug: node-js
+      build_command: npm run typecheck
+      run_command: npm run start:worker-dlr
+      instance_size_slug: apps-s-1vcpu-0.5gb
+      instance_count: 1
+      envs:
+        - key: APP_ROLE
+          scope: RUN_TIME
+          value: worker-dlr
+        - key: PORT
+          scope: RUN_TIME
+          value: "8080"
+    - name: worker-outbox
+      git:
+        repo_clone_url: https://github.com/tekleabkidus-commits/sms-platform-backend
+        branch: main
+        deploy_on_push: true
+      source_dir: .
+      environment_slug: node-js
+      build_command: npm run typecheck
+      run_command: npm run start:worker-outbox
+      instance_size_slug: apps-s-1vcpu-0.5gb
+      instance_count: 1
+      envs:
+        - key: APP_ROLE
+          scope: RUN_TIME
+          value: worker-outbox
+        - key: PORT
+          scope: RUN_TIME
+          value: "8080"
+    - name: worker-campaign
+      git:
+        repo_clone_url: https://github.com/tekleabkidus-commits/sms-platform-backend
+        branch: main
+        deploy_on_push: true
+      source_dir: .
+      environment_slug: node-js
+      build_command: npm run typecheck
+      run_command: npm run start:worker-campaign
+      instance_size_slug: apps-s-1vcpu-0.5gb
+      instance_count: 1
+      envs:
+        - key: APP_ROLE
+          scope: RUN_TIME
+          value: worker-campaign
+        - key: PORT
+          scope: RUN_TIME
+          value: "8080"
+    - name: worker-fraud
+      git:
+        repo_clone_url: https://github.com/tekleabkidus-commits/sms-platform-backend
+        branch: main
+        deploy_on_push: true
+      source_dir: .
+      environment_slug: node-js
+      build_command: npm run typecheck
+      run_command: npm run start:worker-fraud
+      instance_size_slug: apps-s-1vcpu-0.5gb
+      instance_count: 1
+      envs:
+        - key: APP_ROLE
+          scope: RUN_TIME
+          value: worker-fraud
+        - key: PORT
+          scope: RUN_TIME
+          value: "8080"
+    - name: worker-reconciliation
+      git:
+        repo_clone_url: https://github.com/tekleabkidus-commits/sms-platform-backend
+        branch: main
+        deploy_on_push: true
+      source_dir: .
+      environment_slug: node-js
+      build_command: npm run typecheck
+      run_command: npm run start:worker-reconciliation
+      instance_size_slug: apps-s-1vcpu-0.5gb
+      instance_count: 1
+      envs:
+        - key: APP_ROLE
+          scope: RUN_TIME
+          value: worker-reconciliation
+        - key: PORT
+          scope: RUN_TIME
+          value: "8080"
+  ingress:
+    rules:
+      - component:
+          name: api
+        match:
+          path:
+            prefix: /backend
+      - component:
+          name: control-plane
+        match:
+          path:
+            prefix: /

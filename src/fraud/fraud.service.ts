@@ -5,11 +5,13 @@ import {
   Injectable,
   OnModuleInit,
 } from '@nestjs/common';
+import { MetricsService } from '../common/metrics/metrics.service';
 import { DatabaseService } from '../database/database.service';
 import { RedisService } from '../redis/redis.service';
 import { KafkaService } from '../kafka/kafka.service';
 import { KafkaTopics } from '../kafka/kafka-topics';
 import { CreateFraudRuleDto } from './dto/create-fraud-rule.dto';
+import { RuntimeRoleService } from '../runtime/runtime-role.service';
 
 interface FraudRuleRow {
   id: number;
@@ -41,14 +43,56 @@ export class FraudService implements OnModuleInit {
     private readonly databaseService: DatabaseService,
     private readonly redisService: RedisService,
     private readonly kafkaService: KafkaService,
+    private readonly runtimeRoleService: RuntimeRoleService,
+    private readonly metricsService: MetricsService,
   ) {}
 
+  private actionPriority(action: FraudEvaluationResult['action']): number {
+    switch (action) {
+      case 'block':
+        return 4;
+      case 'throttle':
+        return 3;
+      case 'alert':
+        return 2;
+      default:
+        return 1;
+    }
+  }
+
+  private mergeAction(
+    current: FraudEvaluationResult['action'],
+    next: FraudEvaluationResult['action'],
+  ): FraudEvaluationResult['action'] {
+    return this.actionPriority(next) > this.actionPriority(current) ? next : current;
+  }
+
+  private async getTenantPriorityTier(tenantId: string): Promise<number> {
+    const cacheKey = `fraud-tenant-tier:${tenantId}`;
+    const cached = await this.redisService.getJson<number>(cacheKey);
+    if (cached) {
+      return cached;
+    }
+
+    const result = await this.databaseService.query<{ priority_tier: number }>(
+      'SELECT priority_tier FROM tenants WHERE id = $1 LIMIT 1',
+      [tenantId],
+    );
+    const tier = result.rows[0]?.priority_tier ?? 1;
+    await this.redisService.setJson(cacheKey, tier, 60);
+    return tier;
+  }
+
   async onModuleInit(): Promise<void> {
+    if (!this.runtimeRoleService.hasCapability('fraudConsumers')) {
+      return;
+    }
     await Promise.all([
       this.kafkaService.subscribe(KafkaTopics.SmsDispatchRealtime, 'fraud-dispatch-realtime', async ({ value }) => {
         const payload = JSON.parse(value) as FraudEvaluationInput;
         const evaluation = await this.evaluate(payload);
         if (evaluation.action !== 'allow') {
+          this.metricsService.recordRetry('queued', `fraud_${evaluation.action}`);
           await this.publishAlert(payload, evaluation);
         }
       }),
@@ -93,6 +137,8 @@ export class FraudService implements OnModuleInit {
       [tenantId, dto.name, dto.ruleType, dto.action, JSON.stringify(dto.values ?? []), dto.isActive ?? true],
     );
 
+    await this.redisService.delete(`fraud-rules:${tenantId}`);
+
     return result.rows[0] ?? {};
   }
 
@@ -114,6 +160,37 @@ export class FraudService implements OnModuleInit {
       action: row.action,
       values: row.values,
       isActive: row.is_active,
+    }));
+  }
+
+  async listEvents(tenantId: string): Promise<Record<string, unknown>[]> {
+    const result = await this.databaseService.query<{
+      message_submit_date: string;
+      message_id: number;
+      event_type: string;
+      payload: Record<string, unknown>;
+      created_at: string;
+    }>(
+      `
+        SELECT message_submit_date, message_id, event_type, payload, created_at
+        FROM message_logs
+        WHERE tenant_id = $1
+          AND (
+            event_type IN ('submit_throttled', 'failed')
+            OR payload::text ILIKE '%fraud%'
+          )
+        ORDER BY created_at DESC
+        LIMIT 200
+      `,
+      [tenantId],
+    );
+
+    return result.rows.map((row) => ({
+      messageSubmitDate: row.message_submit_date,
+      messageId: row.message_id,
+      eventType: row.event_type,
+      payload: row.payload,
+      createdAt: row.created_at,
     }));
   }
 
@@ -156,13 +233,14 @@ export class FraudService implements OnModuleInit {
     const reasons: string[] = [];
     let action: FraudEvaluationResult['action'] = 'allow';
     let score = await this.mlScore(input);
+    const tenantPriorityTier = await this.getTenantPriorityTier(input.tenantId);
 
     for (const rule of rules) {
       if (rule.rule_type === 'keyword_block') {
         const hit = rule.values.find((value) => input.body.toLowerCase().includes(value.toLowerCase()));
         if (hit) {
           reasons.push(`keyword:${hit}`);
-          action = rule.action as FraudEvaluationResult['action'];
+          action = this.mergeAction(action, rule.action as FraudEvaluationResult['action']);
         }
       }
 
@@ -170,7 +248,15 @@ export class FraudService implements OnModuleInit {
         const hit = rule.values.find((value) => input.phoneNumber.startsWith(value));
         if (hit) {
           reasons.push(`prefix:${hit}`);
-          action = rule.action as FraudEvaluationResult['action'];
+          action = this.mergeAction(action, rule.action as FraudEvaluationResult['action']);
+        }
+      }
+
+      if (rule.rule_type === 'sender_block') {
+        const hit = rule.values.find((value) => input.senderId.toLowerCase() === value.toLowerCase());
+        if (hit) {
+          reasons.push(`sender:${hit}`);
+          action = this.mergeAction(action, rule.action as FraudEvaluationResult['action']);
         }
       }
     }
@@ -182,8 +268,26 @@ export class FraudService implements OnModuleInit {
     }
     if (count > 5000) {
       reasons.push('velocity_threshold');
-      action = action === 'block' ? 'block' : 'throttle';
+      action = this.mergeAction(action, 'throttle');
       score += 0.3;
+    }
+
+    const prefix = input.phoneNumber.slice(0, Math.min(input.phoneNumber.length, 7));
+    const destinationPrefixKey = `fraud:prefix:${input.tenantId}:${prefix}:${Math.floor(Date.now() / 60000)}`;
+    const prefixHits = await this.redisService.getClient().incr(destinationPrefixKey);
+    if (prefixHits === 1) {
+      await this.redisService.getClient().expire(destinationPrefixKey, 60);
+    }
+    if (prefixHits > 7500) {
+      reasons.push('prefix_velocity_threshold');
+      action = this.mergeAction(action, 'throttle');
+      score += 0.2;
+    }
+
+    if (tenantPriorityTier <= 1 && input.trafficType === 'marketing' && /https?:\/\//i.test(input.body)) {
+      reasons.push('low_trust_marketing_url');
+      action = this.mergeAction(action, 'block');
+      score += 0.35;
     }
 
     return { action, reasons, score };

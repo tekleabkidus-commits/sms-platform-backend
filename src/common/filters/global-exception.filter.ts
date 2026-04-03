@@ -37,7 +37,13 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     }
 
     this.logger.error(
-      `${request.method} ${request.url} failed`,
+      JSON.stringify({
+        event: 'http_request_failed',
+        method: request.method,
+        path: request.url,
+        requestId: request.headers['x-request-id'],
+        error: exception instanceof Error ? exception.message : body.message,
+      }),
       exception instanceof Error ? exception.stack : undefined,
     );
 

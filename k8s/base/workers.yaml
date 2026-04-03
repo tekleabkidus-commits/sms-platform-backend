@@ -1,0 +1,491 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sms-platform-worker-dispatch
+  labels:
+    app.kubernetes.io/name: sms-platform-worker-dispatch
+    app.kubernetes.io/component: worker-dispatch
+    app.kubernetes.io/part-of: sms-platform
+spec:
+  replicas: 3
+  revisionHistoryLimit: 5
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: sms-platform-worker-dispatch
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: sms-platform-worker-dispatch
+        app.kubernetes.io/component: worker-dispatch
+        app.kubernetes.io/part-of: sms-platform
+        metrics: "true"
+    spec:
+      serviceAccountName: sms-platform-runtime
+      automountServiceAccountToken: false
+      terminationGracePeriodSeconds: 60
+      containers:
+        - name: worker-dispatch
+          image: sms-platform-backend
+          env:
+            - name: APP_ROLE
+              value: worker-dispatch
+          envFrom:
+            - configMapRef:
+                name: sms-platform-backend-config
+            - secretRef:
+                name: sms-platform-backend-secrets
+          ports:
+            - name: http
+              containerPort: 3000
+          startupProbe:
+            httpGet:
+              path: /api/v1/health/startup
+              port: http
+            failureThreshold: 30
+            periodSeconds: 5
+          readinessProbe:
+            httpGet:
+              path: /api/v1/health/ready
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /api/v1/health/live
+              port: http
+            initialDelaySeconds: 20
+            periodSeconds: 20
+          lifecycle:
+            preStop:
+              exec:
+                command: ["/bin/sh", "-c", "sleep 10"]
+          resources:
+            requests:
+              cpu: 500m
+              memory: 768Mi
+            limits:
+              cpu: "3"
+              memory: 3Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: sms-platform-worker-dispatch
+  labels:
+    app.kubernetes.io/name: sms-platform-worker-dispatch
+    metrics: "true"
+spec:
+  selector:
+    app.kubernetes.io/name: sms-platform-worker-dispatch
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sms-platform-worker-dlr
+  labels:
+    app.kubernetes.io/name: sms-platform-worker-dlr
+    app.kubernetes.io/component: worker-dlr
+    app.kubernetes.io/part-of: sms-platform
+spec:
+  replicas: 2
+  revisionHistoryLimit: 5
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: sms-platform-worker-dlr
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: sms-platform-worker-dlr
+        app.kubernetes.io/component: worker-dlr
+        app.kubernetes.io/part-of: sms-platform
+        metrics: "true"
+    spec:
+      serviceAccountName: sms-platform-runtime
+      automountServiceAccountToken: false
+      terminationGracePeriodSeconds: 60
+      containers:
+        - name: worker-dlr
+          image: sms-platform-backend
+          env:
+            - name: APP_ROLE
+              value: worker-dlr
+          envFrom:
+            - configMapRef:
+                name: sms-platform-backend-config
+            - secretRef:
+                name: sms-platform-backend-secrets
+          ports:
+            - name: http
+              containerPort: 3000
+          startupProbe:
+            httpGet:
+              path: /api/v1/health/startup
+              port: http
+            failureThreshold: 30
+            periodSeconds: 5
+          readinessProbe:
+            httpGet:
+              path: /api/v1/health/ready
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /api/v1/health/live
+              port: http
+            initialDelaySeconds: 20
+            periodSeconds: 20
+          lifecycle:
+            preStop:
+              exec:
+                command: ["/bin/sh", "-c", "sleep 10"]
+          resources:
+            requests:
+              cpu: 300m
+              memory: 512Mi
+            limits:
+              cpu: "2"
+              memory: 2Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: sms-platform-worker-dlr
+  labels:
+    app.kubernetes.io/name: sms-platform-worker-dlr
+    metrics: "true"
+spec:
+  selector:
+    app.kubernetes.io/name: sms-platform-worker-dlr
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sms-platform-worker-outbox
+  labels:
+    app.kubernetes.io/name: sms-platform-worker-outbox
+    app.kubernetes.io/component: worker-outbox
+    app.kubernetes.io/part-of: sms-platform
+spec:
+  replicas: 2
+  revisionHistoryLimit: 5
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: sms-platform-worker-outbox
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: sms-platform-worker-outbox
+        app.kubernetes.io/component: worker-outbox
+        app.kubernetes.io/part-of: sms-platform
+        metrics: "true"
+    spec:
+      serviceAccountName: sms-platform-runtime
+      automountServiceAccountToken: false
+      terminationGracePeriodSeconds: 60
+      containers:
+        - name: worker-outbox
+          image: sms-platform-backend
+          env:
+            - name: APP_ROLE
+              value: worker-outbox
+          envFrom:
+            - configMapRef:
+                name: sms-platform-backend-config
+            - secretRef:
+                name: sms-platform-backend-secrets
+          ports:
+            - name: http
+              containerPort: 3000
+          startupProbe:
+            httpGet:
+              path: /api/v1/health/startup
+              port: http
+            failureThreshold: 30
+            periodSeconds: 5
+          readinessProbe:
+            httpGet:
+              path: /api/v1/health/ready
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /api/v1/health/live
+              port: http
+            initialDelaySeconds: 20
+            periodSeconds: 20
+          lifecycle:
+            preStop:
+              exec:
+                command: ["/bin/sh", "-c", "sleep 10"]
+          resources:
+            requests:
+              cpu: 300m
+              memory: 512Mi
+            limits:
+              cpu: "2"
+              memory: 2Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: sms-platform-worker-outbox
+  labels:
+    app.kubernetes.io/name: sms-platform-worker-outbox
+    metrics: "true"
+spec:
+  selector:
+    app.kubernetes.io/name: sms-platform-worker-outbox
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sms-platform-worker-campaign
+  labels:
+    app.kubernetes.io/name: sms-platform-worker-campaign
+    app.kubernetes.io/component: worker-campaign
+    app.kubernetes.io/part-of: sms-platform
+spec:
+  replicas: 1
+  revisionHistoryLimit: 5
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: sms-platform-worker-campaign
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: sms-platform-worker-campaign
+        app.kubernetes.io/component: worker-campaign
+        app.kubernetes.io/part-of: sms-platform
+        metrics: "true"
+    spec:
+      serviceAccountName: sms-platform-runtime
+      automountServiceAccountToken: false
+      terminationGracePeriodSeconds: 60
+      containers:
+        - name: worker-campaign
+          image: sms-platform-backend
+          env:
+            - name: APP_ROLE
+              value: worker-campaign
+          envFrom:
+            - configMapRef:
+                name: sms-platform-backend-config
+            - secretRef:
+                name: sms-platform-backend-secrets
+          ports:
+            - name: http
+              containerPort: 3000
+          startupProbe:
+            httpGet:
+              path: /api/v1/health/startup
+              port: http
+            failureThreshold: 30
+            periodSeconds: 5
+          readinessProbe:
+            httpGet:
+              path: /api/v1/health/ready
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /api/v1/health/live
+              port: http
+            initialDelaySeconds: 20
+            periodSeconds: 20
+          resources:
+            requests:
+              cpu: 200m
+              memory: 384Mi
+            limits:
+              cpu: "1"
+              memory: 1Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: sms-platform-worker-campaign
+  labels:
+    app.kubernetes.io/name: sms-platform-worker-campaign
+    metrics: "true"
+spec:
+  selector:
+    app.kubernetes.io/name: sms-platform-worker-campaign
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sms-platform-worker-fraud
+  labels:
+    app.kubernetes.io/name: sms-platform-worker-fraud
+    app.kubernetes.io/component: worker-fraud
+    app.kubernetes.io/part-of: sms-platform
+spec:
+  replicas: 1
+  revisionHistoryLimit: 5
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: sms-platform-worker-fraud
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: sms-platform-worker-fraud
+        app.kubernetes.io/component: worker-fraud
+        app.kubernetes.io/part-of: sms-platform
+        metrics: "true"
+    spec:
+      serviceAccountName: sms-platform-runtime
+      automountServiceAccountToken: false
+      terminationGracePeriodSeconds: 60
+      containers:
+        - name: worker-fraud
+          image: sms-platform-backend
+          env:
+            - name: APP_ROLE
+              value: worker-fraud
+          envFrom:
+            - configMapRef:
+                name: sms-platform-backend-config
+            - secretRef:
+                name: sms-platform-backend-secrets
+          ports:
+            - name: http
+              containerPort: 3000
+          startupProbe:
+            httpGet:
+              path: /api/v1/health/startup
+              port: http
+            failureThreshold: 30
+            periodSeconds: 5
+          readinessProbe:
+            httpGet:
+              path: /api/v1/health/ready
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /api/v1/health/live
+              port: http
+            initialDelaySeconds: 20
+            periodSeconds: 20
+          resources:
+            requests:
+              cpu: 150m
+              memory: 256Mi
+            limits:
+              cpu: "1"
+              memory: 1Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: sms-platform-worker-fraud
+  labels:
+    app.kubernetes.io/name: sms-platform-worker-fraud
+    metrics: "true"
+spec:
+  selector:
+    app.kubernetes.io/name: sms-platform-worker-fraud
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sms-platform-worker-reconciliation
+  labels:
+    app.kubernetes.io/name: sms-platform-worker-reconciliation
+    app.kubernetes.io/component: worker-reconciliation
+    app.kubernetes.io/part-of: sms-platform
+spec:
+  replicas: 1
+  revisionHistoryLimit: 5
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: sms-platform-worker-reconciliation
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: sms-platform-worker-reconciliation
+        app.kubernetes.io/component: worker-reconciliation
+        app.kubernetes.io/part-of: sms-platform
+        metrics: "true"
+    spec:
+      serviceAccountName: sms-platform-runtime
+      automountServiceAccountToken: false
+      terminationGracePeriodSeconds: 60
+      containers:
+        - name: worker-reconciliation
+          image: sms-platform-backend
+          env:
+            - name: APP_ROLE
+              value: worker-reconciliation
+          envFrom:
+            - configMapRef:
+                name: sms-platform-backend-config
+            - secretRef:
+                name: sms-platform-backend-secrets
+          ports:
+            - name: http
+              containerPort: 3000
+          startupProbe:
+            httpGet:
+              path: /api/v1/health/startup
+              port: http
+            failureThreshold: 30
+            periodSeconds: 5
+          readinessProbe:
+            httpGet:
+              path: /api/v1/health/ready
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /api/v1/health/live
+              port: http
+            initialDelaySeconds: 20
+            periodSeconds: 20
+          resources:
+            requests:
+              cpu: 150m
+              memory: 256Mi
+            limits:
+              cpu: "1"
+              memory: 1Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: sms-platform-worker-reconciliation
+  labels:
+    app.kubernetes.io/name: sms-platform-worker-reconciliation
+    metrics: "true"
+spec:
+  selector:
+    app.kubernetes.io/name: sms-platform-worker-reconciliation
+  ports:
+    - name: http
+      port: 80
+      targetPort: http

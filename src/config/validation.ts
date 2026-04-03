@@ -2,8 +2,25 @@ import * as Joi from 'joi';
 
 export const configurationValidationSchema = Joi.object({
   NODE_ENV: Joi.string().valid('development', 'test', 'staging', 'production').default('development'),
+  APP_ROLE: Joi.string()
+    .valid(
+      'all',
+      'api',
+      'worker-dispatch',
+      'worker-dlr',
+      'worker-outbox',
+      'worker-campaign',
+      'worker-fraud',
+      'worker-reconciliation',
+    )
+    .default('all'),
   PORT: Joi.number().port().default(3000),
+  HOST: Joi.string().required().default('0.0.0.0'),
   API_PREFIX: Joi.string().default('api/v1'),
+  LOG_LEVEL: Joi.string().valid('error', 'warn', 'log', 'debug', 'verbose').default('log'),
+  TRUST_PROXY: Joi.boolean().default(false),
+  CORS_ALLOWED_ORIGINS: Joi.string().allow('').default(''),
+  SHUTDOWN_TIMEOUT_MS: Joi.number().integer().min(1000).default(15000),
   POSTGRES_HOST: Joi.string().required(),
   POSTGRES_PORT: Joi.number().port().required(),
   POSTGRES_USER: Joi.string().required(),
@@ -15,6 +32,7 @@ export const configurationValidationSchema = Joi.object({
   REDIS_PORT: Joi.number().port().required(),
   REDIS_USERNAME: Joi.string().allow('').optional(),
   REDIS_PASSWORD: Joi.string().allow('').optional(),
+  REDIS_DB: Joi.number().integer().min(0).default(0),
   KAFKA_CLIENT_ID: Joi.string().required(),
   KAFKA_BROKERS: Joi.string().required(),
   KAFKA_GROUP_ID: Joi.string().required(),
@@ -25,8 +43,14 @@ export const configurationValidationSchema = Joi.object({
   JWT_PUBLIC_KEY: Joi.string().required(),
   JWT_PRIVATE_KEY: Joi.string().required(),
   HTTP_PROVIDER_TIMEOUT_MS: Joi.number().integer().min(1000).default(10000),
+  PROVIDER_UNKNOWN_OUTCOME_TIMEOUT_MS: Joi.number().integer().min(1000).default(15000),
   OUTBOX_BATCH_SIZE: Joi.number().integer().min(1).max(1000).default(100),
+  OUTBOX_PUBLISH_LEASE_SECONDS: Joi.number().integer().min(5).default(300),
+  ALLOW_INSECURE_PLAIN_SECRETS: Joi.boolean().default(false),
   PROMETHEUS_DEFAULT_METRICS: Joi.boolean().default(true),
   SMPP_ENQUIRE_LINK_SECONDS: Joi.number().integer().min(5).default(30),
   SMPP_DEFAULT_WINDOW_SIZE: Joi.number().integer().min(1).default(16),
+  CIRCUIT_BREAKER_FAILURE_THRESHOLD: Joi.number().integer().min(1).default(3),
+  CIRCUIT_BREAKER_OPEN_SECONDS: Joi.number().integer().min(5).default(60),
+  CIRCUIT_BREAKER_HALF_OPEN_PROBE_SECONDS: Joi.number().integer().min(1).default(10),
 });

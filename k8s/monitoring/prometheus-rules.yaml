@@ -1,0 +1,50 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: sms-platform-alerts
+spec:
+  groups:
+    - name: sms-platform.rules
+      rules:
+        - alert: SmsPlatformApi5xxSpike
+          expr: sum(rate(http_requests_total{status_code=~"5.."}[5m])) / clamp_min(sum(rate(http_requests_total[5m])), 1) > 0.05
+          for: 10m
+          labels:
+            severity: critical
+          annotations:
+            summary: API 5xx rate is above 5%
+        - alert: SmsPlatformOutboxBacklogGrowing
+          expr: sms_outbox_backlog{status="pending"} > 5000
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: Outbox backlog is above threshold
+        - alert: SmsPlatformDlrBacklogGrowing
+          expr: sms_dlr_backlog > 5000
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: DLR backlog is above threshold
+        - alert: SmsPlatformReconciliationBacklogGrowing
+          expr: sms_reconciliation_backlog > 1000
+          for: 15m
+          labels:
+            severity: warning
+          annotations:
+            summary: Reconciliation backlog is above threshold
+        - alert: SmsPlatformProviderCircuitOpen
+          expr: sms_provider_circuit_state{state="open"} == 1
+          for: 5m
+          labels:
+            severity: critical
+          annotations:
+            summary: A provider circuit is open
+        - alert: SmsPlatformRateLimitDenialsSpike
+          expr: sum(rate(sms_rate_limit_denied_total[5m])) > 50
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: Rate limit denials are spiking
