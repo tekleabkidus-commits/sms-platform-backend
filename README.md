@@ -27,7 +27,7 @@ sms-platform-backend/
 ```bash
 npm ci
 copy .env.example .env
-node scripts/run-migrations.mjs
+cmd /c npm run db:prepare
 cmd /c npm run seed:local
 cmd /c npm run verify
 ```
@@ -123,6 +123,12 @@ Kubernetes manifests:
 
 ```bash
 cmd /c npm run validate:manifests
+```
+
+Database bootstrap:
+
+```bash
+cmd /c npm run db:prepare
 ```
 
 ## Deployment Assets

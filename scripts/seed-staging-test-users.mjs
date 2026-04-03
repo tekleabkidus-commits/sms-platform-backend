@@ -1,5 +1,8 @@
 import { randomBytes, scryptSync } from 'node:crypto';
 import { Client } from 'pg';
+import { loadLocalEnv } from './lib/env-loader.mjs';
+
+loadLocalEnv();
 
 const ACTUAL_ROLES = ['owner', 'admin', 'finance', 'support', 'developer', 'viewer'];
 const DEFAULT_SHARED_PASSWORD = 'xSMS-Staging-2026!FRA#7NqLm4Pz';
@@ -628,7 +631,8 @@ async function main() {
   } catch (error) {
     await client.query('ROLLBACK');
     if (error && typeof error === 'object' && 'code' in error && error.code === '42P01') {
-      throw new Error('Staging test-user seed failed because the schema is missing. Run migrations first with `node scripts/run-migrations.mjs`.');
+      const relationMessage = 'message' in error ? String(error.message) : 'relation is missing';
+      throw new Error(`Staging test-user seed failed because the schema is missing: ${relationMessage}. Run migrations first with \`node scripts/run-migrations.mjs\`.`);
     }
     throw error;
   } finally {

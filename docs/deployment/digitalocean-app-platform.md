@@ -107,11 +107,12 @@ Safe defaults already present in the template:
 ## Recommended Deployment Order
 
 1. Deploy the **API** service.
-2. Verify `/backend/api/v1/health/ready`.
-3. Deploy the **worker** components.
-4. Deploy the **control-plane** service.
-5. Seed **staging-only** test users if this is a non-production environment.
-6. Run smoke checks from the control-plane and the backend health endpoints.
+2. Open the API console and run `node scripts/prepare-database.mjs`.
+3. Verify `/backend/api/v1/health/ready`.
+4. Deploy the **worker** components.
+5. Deploy the **control-plane** service.
+6. Seed **staging-only** test users if this is a non-production environment.
+7. Run smoke checks from the control-plane and the backend health endpoints.
 
 ## Staging Test Accounts
 
@@ -120,6 +121,7 @@ See [staging-test-accounts.md](/C:/Users/Kidus/Documents/sms-platform-backend/do
 Seed command from the repository root:
 
 ```bash
+APP_ENV=staging POSTGRES_CREATE_DATABASE_IF_MISSING=false node scripts/prepare-database.mjs
 APP_ENV=staging ALLOW_STAGING_TEST_USER_SEED=true STAGING_TEST_SHARED_PASSWORD=xSMS-Staging-2026!FRA#7NqLm4Pz node scripts/seed-staging-test-users.mjs
 ```
 

@@ -11,7 +11,7 @@
 ```bash
 npm ci
 copy .env.example .env
-node scripts/run-migrations.mjs
+cmd /c npm run db:prepare
 cmd /c npm run seed:local
 npm run verify
 npm run start:dev
@@ -46,7 +46,7 @@ The local seed script is idempotent, blocked when `APP_ENV` or `NODE_ENV` is `pr
 
 ```bash
 docker compose up -d postgres redis zookeeper kafka
-docker compose --profile tools run --rm migrate
+cmd /c npm run db:prepare
 cmd /c npm run seed:local
 docker compose up -d api worker-dispatch worker-dlr worker-outbox worker-campaign worker-fraud worker-reconciliation control-plane
 node scripts/smoke-check.mjs
