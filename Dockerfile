@@ -8,7 +8,16 @@ RUN npm ci
 FROM base AS build
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
-RUN npm run build
+RUN set -e; \
+    echo "==> Running TypeScript compilation..."; \
+    npm run build; \
+    echo "==> Verifying dist/ output..."; \
+    if [ ! -f "dist/src/main.js" ]; then \
+      echo "ERROR: dist/src/main.js not found — TypeScript compilation produced no output." >&2; \
+      exit 1; \
+    fi; \
+    echo "==> Build succeeded. Compiled files:"; \
+    find dist/ -name "*.js" | sort
 
 FROM base AS prod-deps
 COPY package.json package-lock.json ./
