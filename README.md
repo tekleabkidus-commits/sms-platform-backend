@@ -84,6 +84,7 @@ Railway deployment guide:
 
 Copy-paste Railway variable files:
 
+- [RAILWAY_VARIABLES_SHARED.env](/C:/Users/Kidus/Documents/sms-platform-backend/RAILWAY_VARIABLES_SHARED.env)
 - [RAILWAY_VARIABLES_BACKEND.env](/C:/Users/Kidus/Documents/sms-platform-backend/RAILWAY_VARIABLES_BACKEND.env)
 - [RAILWAY_VARIABLES_FRONTEND.env](/C:/Users/Kidus/Documents/sms-platform-backend/RAILWAY_VARIABLES_FRONTEND.env)
 - [RAILWAY_VARIABLES_WORKERS.env](/C:/Users/Kidus/Documents/sms-platform-backend/RAILWAY_VARIABLES_WORKERS.env)
@@ -91,10 +92,10 @@ Copy-paste Railway variable files:
 
 Recommended Railway service names so the variable references work without edits:
 
-- `postgres`
-- `redis`
-- `api`
-- `control-plane`
+- `Postgres`
+- `Redis`
+- `sms-platform-backend`
+- `sms-platform-frontend`
 - `worker-dispatch`
 - `worker-dlr`
 - `worker-outbox`
@@ -106,6 +107,12 @@ Recommended Railway root directories:
 
 - backend and workers: `/`
 - control-plane: `/control-plane`
+
+Generate Railway JWT keys locally with:
+
+```bash
+cmd /c npm run generate:jwt
+```
 
 ## Core Runtime Roles
 

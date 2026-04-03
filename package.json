@@ -25,6 +25,7 @@
     "test:cov": "jest --coverage",
     "test:ci": "npm run test && npm run build",
     "validate:manifests": "node scripts/validate-manifests.mjs",
+    "generate:jwt": "node scripts/generate-jwt-keys.mjs",
     "db:prepare": "node scripts/prepare-database.mjs",
     "migrate": "node scripts/run-migrations.mjs",
     "seed:local": "node scripts/seed-local-admin.mjs",

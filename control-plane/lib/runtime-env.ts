@@ -27,7 +27,7 @@ export function getBackendBaseUrl(): string {
   if (shouldRequireHostedConfig()) {
     throw getHostedEnvError(
       'BACKEND_BASE_URL',
-      'Use the API private Railway domain, for example http://${{api.RAILWAY_PRIVATE_DOMAIN}}/api/v1.',
+      'Use the backend Railway public domain, for example https://${{sms-platform-backend.RAILWAY_PUBLIC_DOMAIN}}/api/v1.',
     );
   }
 
@@ -43,7 +43,7 @@ export function getSwaggerUrl(): string {
   if (shouldRequireHostedConfig()) {
     throw getHostedEnvError(
       'NEXT_PUBLIC_BACKEND_SWAGGER_URL',
-      'Use the API public Railway domain, for example https://${{api.RAILWAY_PUBLIC_DOMAIN}}/api/v1/docs.',
+      'Use the backend Railway public domain, for example https://${{sms-platform-backend.RAILWAY_PUBLIC_DOMAIN}}/api/v1/docs.',
     );
   }
 

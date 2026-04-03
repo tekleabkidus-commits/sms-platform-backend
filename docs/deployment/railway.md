@@ -21,10 +21,10 @@ Known backend public domain today:
 
 Use these Railway service names exactly so the variable references in the committed env files work without editing:
 
-- `postgres`
-- `redis`
-- `api`
-- `control-plane`
+- `Postgres`
+- `Redis`
+- `sms-platform-backend`
+- `sms-platform-frontend`
 - `worker-dispatch`
 - `worker-dlr`
 - `worker-outbox`
@@ -34,14 +34,18 @@ Use these Railway service names exactly so the variable references in the commit
 
 Kafka is expected to be external. Create that outside Railway unless you already have a Kafka-compatible service that exposes equivalent environment values.
 
+Before configuring any service-specific variables, create the project-level shared variables from:
+
+- [RAILWAY_VARIABLES_SHARED.env](/C:/Users/Kidus/Documents/sms-platform-backend/RAILWAY_VARIABLES_SHARED.env)
+
 ## What To Create In Railway
 
 Create one Railway project with:
 
-1. PostgreSQL service named `postgres`
-2. Redis service named `redis`
-3. Web service named `api`
-4. Web service named `control-plane`
+1. PostgreSQL service named `Postgres`
+2. Redis service named `Redis`
+3. Web service named `sms-platform-backend`
+4. Web service named `sms-platform-frontend`
 5. Worker service named `worker-dispatch`
 6. Worker service named `worker-dlr`
 7. Worker service named `worker-outbox`
@@ -125,20 +129,20 @@ Then change only `APP_ROLE` per worker:
 1. Click **New**.
 2. Choose **Database**.
 3. Choose **PostgreSQL**.
-4. Rename the service to `postgres`.
+4. Rename the service to `Postgres`.
 
 ### 3. Add Redis
 
 1. Click **New**.
 2. Choose **Database**.
 3. Choose **Redis**.
-4. Rename the service to `redis`.
+4. Rename the service to `Redis`.
 
 ### 4. Add the backend API
 
 Use exactly:
 
-- service name: `api`
+- service name: `sms-platform-backend`
 - root directory: `/`
 - config file path: `/.railway/backend/railway.json`
 - build command: leave blank
@@ -146,18 +150,23 @@ Use exactly:
 
 Paste the contents of [RAILWAY_VARIABLES_BACKEND.env](/C:/Users/Kidus/Documents/sms-platform-backend/RAILWAY_VARIABLES_BACKEND.env) into the Variables screen, then replace:
 
-- `KAFKA_BROKERS`
-- `KAFKA_SASL_MECHANISM`
-- `KAFKA_SASL_USERNAME`
-- `KAFKA_SASL_PASSWORD`
-- `JWT_PUBLIC_KEY`
-- `JWT_PRIVATE_KEY`
+- any remaining public-domain references if your service names differ
+
+Generate the JWT keypair locally with:
+
+```bash
+cmd /c npm run generate:jwt
+```
+
+Create the shared Kafka/JWT values from:
+
+- [RAILWAY_VARIABLES_SHARED.env](/C:/Users/Kidus/Documents/sms-platform-backend/RAILWAY_VARIABLES_SHARED.env)
 
 ### 5. Add the control-plane
 
 Use exactly:
 
-- service name: `control-plane`
+- service name: `sms-platform-frontend`
 - root directory: `/control-plane`
 - config file path: `/control-plane/railway.json`
 - build command: leave blank
@@ -187,12 +196,12 @@ Paste [RAILWAY_VARIABLES_WORKERS.env](/C:/Users/Kidus/Documents/sms-platform-bac
 
 ## First Deployment Order
 
-1. Create `postgres`
-2. Create `redis`
-3. Create `api`
-4. Add all required API variables
-5. Deploy `api`
-6. Open the `api` service shell and run:
+1. Create `Postgres`
+2. Create `Redis`
+3. Create `sms-platform-backend`
+4. Add all required backend variables
+5. Deploy `sms-platform-backend`
+6. Open the `sms-platform-backend` service shell and run:
 
 ```bash
 POSTGRES_CREATE_DATABASE_IF_MISSING=false node scripts/prepare-database.mjs
@@ -205,7 +214,7 @@ APP_ENV=staging ALLOW_STAGING_TEST_USER_SEED=true STAGING_TEST_SHARED_PASSWORD=x
 ```
 
 8. Deploy worker services
-9. Deploy `control-plane`
+9. Deploy `sms-platform-frontend`
 10. Open the frontend and verify login
 
 ## Required Variables By Source
@@ -218,8 +227,7 @@ Short version:
 
 - PostgreSQL values come from Railway PostgreSQL service references
 - Redis values come from Railway Redis service references
-- Kafka values are manual or external-provider values
-- JWT keys are manually generated secrets
+- Kafka values and JWT keys should be created once as Railway Shared Variables
 - `BACKEND_BASE_URL` and `CORS_ALLOWED_ORIGINS` come from Railway service domain references
 
 ## Staging Test Accounts
@@ -234,7 +242,7 @@ Shared temporary password:
 
 ## How To Seed In Railway
 
-Run these from the **api** service shell:
+Run these from the **sms-platform-backend** service shell:
 
 Database prep:
 
@@ -258,13 +266,13 @@ APP_ENV=staging ALLOW_STAGING_TEST_USER_SEED=true STAGING_TEST_SHARED_PASSWORD=x
 
 Backend:
 
-- `https://<api-public-domain>/api/v1/health/live`
-- `https://<api-public-domain>/api/v1/health/ready`
-- `https://<api-public-domain>/api/v1/docs`
+- `https://<sms-platform-backend-public-domain>/api/v1/health/live`
+- `https://<sms-platform-backend-public-domain>/api/v1/health/ready`
+- `https://<sms-platform-backend-public-domain>/api/v1/docs`
 
 Frontend:
 
-- `https://<control-plane-public-domain>/api/health`
+- `https://<sms-platform-frontend-public-domain>/api/health`
 - login page loads
 - login succeeds for staging-only seeded users
 
@@ -290,9 +298,9 @@ Check:
 
 Check:
 
-- `BACKEND_BASE_URL` points to `http://${{api.RAILWAY_PRIVATE_DOMAIN}}/api/v1`
-- the `api` service is healthy
-- `CORS_ALLOWED_ORIGINS` on the API includes the control-plane public domain
+- `BACKEND_BASE_URL` points to `https://${{sms-platform-backend.RAILWAY_PUBLIC_DOMAIN}}/api/v1`
+- the `sms-platform-backend` service is healthy
+- `CORS_ALLOWED_ORIGINS` on the backend includes the frontend public domain
 
 ### Login fails with 401 or 403
 
@@ -300,7 +308,7 @@ Check:
 
 - seeded users were actually created
 - backend JWT keys are present
-- the control-plane can reach the API private domain
+- the frontend can reach the backend Railway URL
 - backend logs for request IDs and auth failures
 
 ### Swagger link opens localhost or the wrong URL

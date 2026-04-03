@@ -64,7 +64,7 @@ cmd /c npm run seed:staging-users -- --plan
 
 ## DigitalOcean App Platform
 
-Run the same command from the **API component console** after the app is deployed and the managed database, Redis, and Kafka environment variables are in place:
+Run the same command from the **backend service console** after the app is deployed and the managed database, Redis, and Kafka environment variables are in place:
 
 ```bash
 APP_ENV=staging ALLOW_STAGING_TEST_USER_SEED=true STAGING_TEST_SHARED_PASSWORD=xSMS-Staging-2026!FRA#7NqLm4Pz node scripts/seed-staging-test-users.mjs
@@ -74,7 +74,7 @@ Do not set `ALLOW_STAGING_TEST_USER_SEED=true` in the long-lived production app 
 
 ## Railway
 
-Run the same command from the **api service shell** after PostgreSQL, Redis, Kafka variables, and JWT keys are in place:
+Run the same command from the **sms-platform-backend service shell** after PostgreSQL, Redis, Kafka variables, and JWT keys are in place:
 
 ```bash
 APP_ENV=staging ALLOW_STAGING_TEST_USER_SEED=true STAGING_TEST_SHARED_PASSWORD=xSMS-Staging-2026!FRA#7NqLm4Pz node scripts/seed-staging-test-users.mjs

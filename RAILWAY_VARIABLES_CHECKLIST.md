@@ -2,6 +2,7 @@
 
 These files are the copy-paste sources for Railway:
 
+- [RAILWAY_VARIABLES_SHARED.env](/C:/Users/Kidus/Documents/sms-platform-backend/RAILWAY_VARIABLES_SHARED.env)
 - [RAILWAY_VARIABLES_BACKEND.env](/C:/Users/Kidus/Documents/sms-platform-backend/RAILWAY_VARIABLES_BACKEND.env)
 - [RAILWAY_VARIABLES_FRONTEND.env](/C:/Users/Kidus/Documents/sms-platform-backend/RAILWAY_VARIABLES_FRONTEND.env)
 - [RAILWAY_VARIABLES_WORKERS.env](/C:/Users/Kidus/Documents/sms-platform-backend/RAILWAY_VARIABLES_WORKERS.env)
@@ -10,10 +11,10 @@ These files are the copy-paste sources for Railway:
 
 Use these exact Railway service names so the variable references work without edits:
 
-- `postgres`
-- `redis`
-- `api`
-- `control-plane`
+- `Postgres`
+- `Redis`
+- `sms-platform-backend`
+- `sms-platform-frontend`
 - `worker-dispatch`
 - `worker-dlr`
 - `worker-outbox`
@@ -56,24 +57,24 @@ These values can usually be pasted as-is:
 
 ## Must Come From Railway PostgreSQL
 
-- `POSTGRES_HOST=${{postgres.PGHOST}}`
-- `POSTGRES_PORT=${{postgres.PGPORT}}`
-- `POSTGRES_USER=${{postgres.PGUSER}}`
-- `POSTGRES_PASSWORD=${{postgres.PGPASSWORD}}`
-- `POSTGRES_DATABASE=${{postgres.PGDATABASE}}`
+- `POSTGRES_HOST=${{Postgres.PGHOST}}`
+- `POSTGRES_PORT=${{Postgres.PGPORT}}`
+- `POSTGRES_USER=${{Postgres.PGUSER}}`
+- `POSTGRES_PASSWORD=${{Postgres.PGPASSWORD}}`
+- `POSTGRES_DATABASE=${{Postgres.PGDATABASE}}`
 
 ## Must Come From Railway Redis
 
-- `REDIS_HOST=${{redis.REDISHOST}}`
-- `REDIS_PORT=${{redis.REDISPORT}}`
-- `REDIS_USERNAME=${{redis.REDISUSER}}`
-- `REDIS_PASSWORD=${{redis.REDISPASSWORD}}`
+- `REDIS_HOST=${{Redis.REDISHOST}}`
+- `REDIS_PORT=${{Redis.REDISPORT}}`
+- `REDIS_USERNAME=${{Redis.REDISUSER}}`
+- `REDIS_PASSWORD=${{Redis.REDISPASSWORD}}`
 
 ## Must Come From Railway Service Discovery
 
-- `BACKEND_BASE_URL=http://${{api.RAILWAY_PRIVATE_DOMAIN}}/api/v1`
-- `NEXT_PUBLIC_BACKEND_SWAGGER_URL=https://${{api.RAILWAY_PUBLIC_DOMAIN}}/api/v1/docs`
-- `CORS_ALLOWED_ORIGINS=https://${{control-plane.RAILWAY_PUBLIC_DOMAIN}}`
+- `BACKEND_BASE_URL=https://${{sms-platform-backend.RAILWAY_PUBLIC_DOMAIN}}/api/v1`
+- `NEXT_PUBLIC_BACKEND_SWAGGER_URL=https://${{sms-platform-backend.RAILWAY_PUBLIC_DOMAIN}}/api/v1/docs`
+- `CORS_ALLOWED_ORIGINS=https://${{sms-platform-frontend.RAILWAY_PUBLIC_DOMAIN}}`
 
 ## Must Be Entered Manually By The User
 
@@ -83,6 +84,14 @@ These values can usually be pasted as-is:
 - `KAFKA_SASL_MECHANISM`
 - `KAFKA_SASL_USERNAME`
 - `KAFKA_SASL_PASSWORD`
+
+Generate the JWT PEM blocks locally with:
+
+- `npm run generate:jwt`
+
+Then create the project-level shared variables from:
+
+- [RAILWAY_VARIABLES_SHARED.env](/C:/Users/Kidus/Documents/sms-platform-backend/RAILWAY_VARIABLES_SHARED.env)
 
 ## Railway-Provided Automatically
 

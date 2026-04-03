@@ -9,12 +9,14 @@ describe('Railway deployment assets', () => {
       '.railway/backend/railway.json',
       'control-plane/railway.json',
       'docs/deployment/railway.md',
+      'RAILWAY_VARIABLES_SHARED.env',
       'RAILWAY_VARIABLES_BACKEND.env',
       'RAILWAY_VARIABLES_FRONTEND.env',
       'RAILWAY_VARIABLES_WORKERS.env',
       'RAILWAY_VARIABLES_CHECKLIST.md',
       'docs/deployment/staging-test-accounts.md',
       'scripts/seed-staging-test-users.mjs',
+      'scripts/generate-jwt-keys.mjs',
     ];
 
     for (const relativePath of requiredPaths) {
@@ -24,6 +26,7 @@ describe('Railway deployment assets', () => {
 
   it('documents Railway service references and source directories', () => {
     const guide = readFileSync(path.join(root, 'docs', 'deployment', 'railway.md'), 'utf8');
+    const sharedEnv = readFileSync(path.join(root, 'RAILWAY_VARIABLES_SHARED.env'), 'utf8');
     const backendEnv = readFileSync(path.join(root, 'RAILWAY_VARIABLES_BACKEND.env'), 'utf8');
     const frontendEnv = readFileSync(path.join(root, 'RAILWAY_VARIABLES_FRONTEND.env'), 'utf8');
     const workersEnv = readFileSync(path.join(root, 'RAILWAY_VARIABLES_WORKERS.env'), 'utf8');
@@ -32,16 +35,21 @@ describe('Railway deployment assets', () => {
     expect(guide).toContain('root directory: `/control-plane`');
     expect(guide).toContain('/.railway/backend/railway.json');
     expect(guide).toContain('/control-plane/railway.json');
-    expect(backendEnv).toContain('POSTGRES_HOST=${{postgres.PGHOST}}');
-    expect(backendEnv).toContain('CORS_ALLOWED_ORIGINS=https://${{control-plane.RAILWAY_PUBLIC_DOMAIN}}');
-    expect(frontendEnv).toContain('BACKEND_BASE_URL=http://${{api.RAILWAY_PRIVATE_DOMAIN}}/api/v1');
-    expect(frontendEnv).toContain('NEXT_PUBLIC_BACKEND_SWAGGER_URL=https://${{api.RAILWAY_PUBLIC_DOMAIN}}/api/v1/docs');
+    expect(guide).toContain('service name: `sms-platform-backend`');
+    expect(guide).toContain('service name: `sms-platform-frontend`');
+    expect(sharedEnv).toContain('JWT_PUBLIC_KEY=<paste-rs256-public-key-pem>');
+    expect(sharedEnv).toContain('KAFKA_BROKERS=<paste-your-external-kafka-broker-list>');
+    expect(backendEnv).toContain('POSTGRES_HOST=${{Postgres.PGHOST}}');
+    expect(backendEnv).toContain('KAFKA_BROKERS=${{shared.KAFKA_BROKERS}}');
+    expect(backendEnv).toContain('CORS_ALLOWED_ORIGINS=https://${{sms-platform-frontend.RAILWAY_PUBLIC_DOMAIN}}');
+    expect(frontendEnv).toContain('BACKEND_BASE_URL=https://${{sms-platform-backend.RAILWAY_PUBLIC_DOMAIN}}/api/v1');
+    expect(frontendEnv).toContain('NEXT_PUBLIC_BACKEND_SWAGGER_URL=https://${{sms-platform-backend.RAILWAY_PUBLIC_DOMAIN}}/api/v1/docs');
     expect(workersEnv).toContain('APP_ROLE=worker-dispatch');
   });
 
   it('keeps staging test-user instructions Railway-safe', () => {
     const stagingDoc = readFileSync(path.join(root, 'docs', 'deployment', 'staging-test-accounts.md'), 'utf8');
-    expect(stagingDoc).toContain('api service shell');
+    expect(stagingDoc).toContain('sms-platform-backend service shell');
     expect(stagingDoc).toContain('ALLOW_STAGING_TEST_USER_SEED=true');
     expect(stagingDoc).toContain('must never be seeded into or used from a production environment');
   });
