@@ -37,7 +37,7 @@ if (!role || !VALID_ROLES.has(role)) {
 
 const currentFile = fileURLToPath(import.meta.url);
 const rootDir = path.resolve(path.dirname(currentFile), '..');
-const entrypoint = path.join(rootDir, 'dist', 'src', 'main.js');
+const entrypoint = path.join(rootDir, 'dist', 'main.js');
 
 if (!existsSync(entrypoint)) {
   console.error(
