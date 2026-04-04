@@ -1,5 +1,7 @@
 import { Global, Module } from '@nestjs/common';
+import { MODULE_METADATA } from '@nestjs/common/constants';
 import { ConfigModule } from '@nestjs/config';
+import { JwtModule } from '@nestjs/jwt';
 import { Test } from '@nestjs/testing';
 import { AuditService } from '../src/audit/audit.service';
 import { AuthModule } from '../src/auth/auth.module';
@@ -56,5 +58,12 @@ describe('AuthModule', () => {
     }).compile();
 
     expect(moduleRef.get(AuthService)).toBeInstanceOf(AuthService);
+  });
+
+  it('exports JwtModule so ReauthGuard can be consumed from feature modules', () => {
+    const exportsMetadata = Reflect.getMetadata(MODULE_METADATA.EXPORTS, AuthModule) as unknown[] | undefined;
+
+    expect(exportsMetadata).toBeDefined();
+    expect(exportsMetadata).toContain(JwtModule);
   });
 });

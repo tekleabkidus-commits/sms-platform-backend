@@ -32,7 +32,6 @@ import { SecretsModule } from './secrets/secrets.module';
 import { SearchModule } from './search/search.module';
 import { WalletsModule } from './wallets/wallets.module';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
-import { ReauthGuard } from './common/guards/reauth.guard';
 import { RolesGuard } from './common/guards/roles.guard';
 import { RuntimeModule } from './runtime/runtime.module';
 import { GlobalExceptionFilter } from './common/filters/global-exception.filter';
@@ -73,7 +72,7 @@ import { GlobalExceptionFilter } from './common/filters/global-exception.filter'
     DlrModule,
     ReconciliationModule,
   ],
-  providers: [JwtAuthGuard, ReauthGuard, RolesGuard, GlobalExceptionFilter],
+  providers: [JwtAuthGuard, RolesGuard, GlobalExceptionFilter],
 })
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer): void {

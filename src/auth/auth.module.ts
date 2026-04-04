@@ -8,6 +8,6 @@ import { ReauthGuard } from '../common/guards/reauth.guard';
   imports: [JwtModule.register({})],
   providers: [AuthService, ReauthGuard],
   controllers: [AuthController],
-  exports: [AuthService, ReauthGuard],
+  exports: [AuthService, ReauthGuard, JwtModule],
 })
 export class AuthModule {}
