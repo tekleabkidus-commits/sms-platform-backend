@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { ComplianceModule } from '../compliance/compliance.module';
 import { ConnectorsModule } from '../connectors/connectors.module';
 import { FraudModule } from '../fraud/fraud.module';
 import { OutboxModule } from '../outbox/outbox.module';
@@ -12,6 +13,7 @@ import { MessagesService } from './messages.service';
 
 @Module({
   imports: [
+    ComplianceModule,
     TemplatesModule,
     RoutingModule,
     SenderIdsModule,
